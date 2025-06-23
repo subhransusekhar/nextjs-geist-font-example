@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # Next.js RAG Application
+  rag-app:
+    build: .
+    ports:
+      - "8000:3000"
+    environment:
+      - FHIR_SERVER_URL=http://hapi-fhir:8080/fhir
+      - VLLM_ENDPOINT=http://vllm-service:8080/v1/generate
+    depends_on:
+      - hapi-fhir
+      - vllm-service
+
+  # HAPI FHIR Server
+  hapi-fhir:
+    image: hapiproject/hapi:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_CONFIG_LOCATION=file:///data/hapi/application.yaml
+    volumes:
+      - hapi-data:/data/hapi
+
+  # VLLM Service
+  vllm-service:
+    image: ghcr.io/vllm-project/vllm:latest
+    ports:
+      - "8081:8080"
+    environment:
+      - MODEL_NAME=meta-llama/Llama-2-7b-chat-hf
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  hapi-data:
